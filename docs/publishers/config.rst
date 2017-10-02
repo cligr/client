@@ -64,11 +64,6 @@ loads.
    startup, as if the user had clicked "Log in" themselves.
    (Default: ``false``.)
 
-   .. warning::
-
-      This option is deprecated and has no effect when the client is using OAuth
-      for authorization.
-
 .. option:: openSidebar
 
    ``Boolean``. Controls whether the sidebar opens automatically on startup.

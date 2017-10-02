@@ -6,7 +6,7 @@ var events = require('../events');
 
 var mock = angular.mock;
 
-describe('sidebar.session', function () {
+describe('session', function () {
   var $httpBackend;
   var $rootScope;
 
@@ -423,27 +423,6 @@ describe('sidebar.session', function () {
         return session.logout().then(() => {
           assert.isFalse(session.state.loggedIn);
         });
-      });
-    });
-  });
-
-  context('when another client changes the current login', () => {
-    it('reloads the profile', () => {
-      fakeAuth.login = sinon.stub().returns(Promise.resolve());
-      fakeStore.profile.read.returns(Promise.resolve({
-        userid: 'acct:initial_user@hypothes.is',
-      }));
-
-      return session.load().then(() => {
-
-        // Simulate login change happening in a different tab.
-        fakeStore.profile.read.returns(Promise.resolve({
-          userid: 'acct:different_user@hypothes.is',
-        }));
-        $rootScope.$broadcast(events.OAUTH_TOKENS_CHANGED);
-
-      }).then(() => {
-        assert.equal(session.state.userid, 'acct:different_user@hypothes.is');
       });
     });
   });

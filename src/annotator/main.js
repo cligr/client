@@ -61,9 +61,10 @@ $.noConflict(true)(function() {
 
   config.pluginClasses = pluginClasses;
 
-  var annotator = new Klass(document.body, config);
+  window.annotator = new Klass(document.body, config);
   appLinkEl.addEventListener('destroy', function () {
     appLinkEl.parentElement.removeChild(appLinkEl);
-    annotator.destroy();
+    window.annotator.destroy();
+    window.annotator = undefined;
   });
 });

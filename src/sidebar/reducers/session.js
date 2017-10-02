@@ -60,24 +60,14 @@ function isFeatureEnabled(state, feature) {
   return !!state.session.features[feature];
 }
 
-/**
- * Return the user's profile.
- *
- * Returns the current user's profile fetched from the `/api/profile` endpoint.
- */
-function profile(state) {
-  return state.session;
-}
-
 module.exports = {
-  init,
-  update,
+  init: init,
+  update: update,
 
   actions: {
-    updateSession,
+    updateSession: updateSession,
   },
 
   // Selectors
-  isFeatureEnabled,
-  profile,
+  isFeatureEnabled: isFeatureEnabled,
 };

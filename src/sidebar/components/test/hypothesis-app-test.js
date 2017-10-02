@@ -7,7 +7,7 @@ var events = require('../../events');
 var bridgeEvents = require('../../../shared/bridge-events');
 var util = require('../../../shared/test/util');
 
-describe('sidebar.components.hypothesis-app', function () {
+describe('hypothesisApp', function () {
   var $componentController = null;
   var $scope = null;
   var $rootScope = null;
@@ -158,7 +158,7 @@ describe('sidebar.components.hypothesis-app', function () {
     sandbox.restore();
   });
 
-  describe('#isSidebar', function () {
+  describe('isSidebar property', function () {
 
     it('is false if the window is the top window', function () {
       fakeWindow.top = fakeWindow;
@@ -207,43 +207,15 @@ describe('sidebar.components.hypothesis-app', function () {
     });
   });
 
-  [{
-    // User who has set a display name
-    profile: {
-      userid: 'acct:jim@hypothes.is',
-      user_info: {
-        display_name: 'Jim Smith',
-      },
-    },
-    expectedAuth: {
-      status: 'logged-in',
-      userid: 'acct:jim@hypothes.is',
-      username: 'jim',
-      provider: 'hypothes.is',
-      displayName: 'Jim Smith',
-    },
-  },{
-    // User who has not set a display name
-    profile: {
-      userid: 'acct:jim@hypothes.is',
-      user_info: {
-        display_name: null,
-      },
-    },
-    expectedAuth: {
-      status: 'logged-in',
-      userid: 'acct:jim@hypothes.is',
-      username: 'jim',
-      provider: 'hypothes.is',
-      displayName: 'jim',
-    },
-  }].forEach(({ profile, expectedAuth }) => {
-    it('sets `auth` properties when profile has loaded', () => {
-      fakeSession.load = () => Promise.resolve(profile);
-      var ctrl = createController();
-      return fakeSession.load().then(() => {
-        assert.deepEqual(ctrl.auth, expectedAuth);
-      });
+  it('sets userid, username, and provider properties at login', function () {
+    fakeSession.load = function () {
+      return Promise.resolve({userid: 'acct:jim@hypothes.is'});
+    };
+    var ctrl = createController();
+    return fakeSession.load().then(function () {
+      assert.equal(ctrl.auth.userid, 'acct:jim@hypothes.is');
+      assert.equal(ctrl.auth.username, 'jim');
+      assert.equal(ctrl.auth.provider, 'hypothes.is');
     });
   });
 
@@ -251,13 +223,11 @@ describe('sidebar.components.hypothesis-app', function () {
     var ctrl = createController();
     return fakeSession.load().then(function () {
       $scope.$broadcast(events.USER_CHANGED, {
-        profile: {
-          userid: 'acct:john@hypothes.is',
-        },
+        initialLoad: false,
+        userid: 'acct:john@hypothes.is',
       });
       assert.deepEqual(ctrl.auth, {
         status: 'logged-in',
-        displayName: 'john',
         userid: 'acct:john@hypothes.is',
         username: 'john',
         provider: 'hypothes.is',
@@ -280,25 +250,18 @@ describe('sidebar.components.hypothesis-app', function () {
     assert.isFalse(ctrl.shareDialog.visible);
   });
 
-  context('when the "openLoginForm" setting is enabled', () => {
-    beforeEach(() => {
-      fakeSettings.openLoginForm = true;
-    });
+  it('does not reload the view when the logged-in user changes on first load', function () {
+    createController();
+    fakeRoute.reload = sinon.spy();
+    $scope.$broadcast(events.USER_CHANGED, {initialLoad: true});
+    assert.notCalled(fakeRoute.reload);
+  });
 
-    it('shows the login form if not using OAuth', () => {
-      var ctrl = createController();
-      return fakeSession.load().then(() => {
-        assert.isTrue(ctrl.accountDialog.visible);
-      });
-    });
-
-    it('does not show the login form if using OAuth', () => {
-      fakeAuth.login = sandbox.stub();
-      var ctrl = createController();
-      return fakeSession.load().then(() => {
-        assert.isFalse(ctrl.accountDialog.visible);
-      });
-    });
+  it('reloads the view when the logged-in user changes after first load', function () {
+    createController();
+    fakeRoute.reload = sinon.spy();
+    $scope.$broadcast(events.USER_CHANGED, {initialLoad: false});
+    assert.calledOnce(fakeRoute.reload);
   });
 
   describe('#signUp', function () {

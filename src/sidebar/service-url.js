@@ -33,9 +33,9 @@ var urlUtil = require('./util/url-util');
  *
  * @ngInject
  */
-function serviceUrl(annotationUI, apiRoutes) {
+function serviceUrl(annotationUI, store) {
 
-  apiRoutes.links()
+  store.links()
     .then(annotationUI.updateLinks)
     .catch(function(error) {
       console.warn('The links API request was rejected: ' + error.message);

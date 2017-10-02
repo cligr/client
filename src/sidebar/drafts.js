@@ -22,7 +22,8 @@ function isEmpty(draft) {
  *    the drafts service, they're only used to identify the correct draft to
  *    return.
  *
- * 2. `isPrivate` (boolean), `tags` (array of objects) and `text` (string)
+ * 2. `isPrivate` (boolean), `tags` (array of objects), 'magnets' (array of
+ *    objects), and `text` (string)
  *    which are the user's draft changes to the annotation. These are returned
  *    from the drafts service by `drafts.get()`.
  *
@@ -71,6 +72,7 @@ function DraftStore() {
         return {
           isPrivate: draft.isPrivate,
           tags: draft.tags,
+          magnets: draft.magnets,
           text: draft.text,
         };
       }
@@ -96,6 +98,7 @@ function DraftStore() {
       model: {id: model.id, $tag: model.$tag},
       isPrivate: changes.isPrivate,
       tags: changes.tags,
+      magnets: changes.magnets,
       text: changes.text,
     };
     this.remove(model);

@@ -1,0 +1,15 @@
+<tags-input ng-model="vm.magnetList"
+  name="magnets"
+  class="magnets"
+  placeholder="Select magnet…"
+  min-length="1"
+  min-tags="1"
+  max-tags="1"
+  replace-spaces-with-dashes="false"
+  enable-editing-last-tag="true"
+  on-tag-added="vm.onMagnetsChanged()"
+  on-tag-removed="vm.onMagnetsChanged()">
+  <auto-complete source="vm.autocomplete($query)"
+    min-length="1"
+    max-results-to-show="10"></auto-complete>
+</tags-input>

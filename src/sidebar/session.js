@@ -132,6 +132,9 @@ function session($http, $q, $resource, $rootScope, analytics, annotationUI, auth
    */
   function update(model) {
     var prevSession = annotationUI.getState().session;
+
+    var isInitialLoad = !prevSession.csrf;
+
     var userChanged = model.userid !== prevSession.userid;
     var groupsChanged = !angular.equals(model.groups, prevSession.groups);
 
@@ -157,7 +160,8 @@ function session($http, $q, $resource, $rootScope, analytics, annotationUI, auth
       }
 
       $rootScope.$broadcast(events.USER_CHANGED, {
-        profile: model,
+        initialLoad: isInitialLoad,
+        userid: model.userid,
       });
 
       // associate error reports with the current user in Sentry
@@ -171,7 +175,9 @@ function session($http, $q, $resource, $rootScope, analytics, annotationUI, auth
     }
 
     if (groupsChanged) {
-      $rootScope.$broadcast(events.GROUPS_CHANGED);
+      $rootScope.$broadcast(events.GROUPS_CHANGED, {
+        initialLoad: isInitialLoad,
+      });
     }
 
     // Return the model
@@ -251,10 +257,6 @@ function session($http, $q, $resource, $rootScope, analytics, annotationUI, auth
     lastLoadTime = null;
     return resource.load();
   }
-
-  $rootScope.$on(events.OAUTH_TOKENS_CHANGED, () => {
-    reload();
-  });
 
   return {
     dismissSidebarTutorial: dismissSidebarTutorial,

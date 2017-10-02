@@ -3,8 +3,6 @@
 var angular = require('angular');
 var { stringify } = require('query-string');
 
-var events = require('../events');
-
 var DEFAULT_TOKEN_EXPIRES_IN_SECS = 1000;
 var TOKEN_KEY = 'hypothesis.oauth.hypothes%2Eis.token';
 
@@ -12,29 +10,19 @@ class FakeWindow {
   constructor() {
     this.callbacks = [];
 
+    this.location = {
+      origin: 'client.hypothes.is',
+    };
+
     this.screen = {
       width: 1024,
       height: 768,
     };
 
-
-    this.location = 'https://client.hypothes.is/app.html';
-    this.open = sinon.spy(href => {
-      var win = new FakeWindow;
-      win.location = href;
-      return win;
-    });
+    this.open = sinon.stub();
 
     this.setTimeout = window.setTimeout.bind(window);
     this.clearTimeout = window.clearTimeout.bind(window);
-  }
-
-  get location() {
-    return this.url;
-  }
-
-  set location(href) {
-    this.url = new URL(href);
   }
 
   addEventListener(event, callback) {
@@ -43,30 +31,24 @@ class FakeWindow {
 
   removeEventListener(event, callback) {
     this.callbacks = this.callbacks.filter((cb) =>
-      !(cb.event === event && cb.callback === callback)
+      cb.event === event && cb.callback === callback
     );
-  }
-
-  trigger(event) {
-    this.callbacks.forEach((cb) => {
-      if (cb.event === event.type) {
-        cb.callback(event);
-      }
-    });
   }
 
   sendMessage(data) {
     var evt = new MessageEvent('message', { data });
-    this.trigger(evt);
+    this.callbacks.forEach(({event, callback}) => {
+      if (event === 'message') {
+        callback(evt);
+      }
+    });
   }
 }
 
 describe('sidebar.oauth-auth', function () {
 
-  var $rootScope;
   var auth;
   var nowStub;
-  var fakeApiRoutes;
   var fakeHttp;
   var fakeFlash;
   var fakeLocalStorage;
@@ -115,13 +97,6 @@ describe('sidebar.oauth-auth', function () {
       post: sinon.stub().returns(successfulFirstAccessTokenPromise),
     };
 
-    fakeApiRoutes = {
-      links: sinon.stub().returns(Promise.resolve({
-        'oauth.authorize': 'https://hypothes.is/oauth/authorize/',
-        'oauth.revoke': 'https://hypothes.is/oauth/revoke/',
-      })),
-    };
-
     fakeFlash = {
       error: sinon.stub(),
     };
@@ -132,7 +107,9 @@ describe('sidebar.oauth-auth', function () {
 
     fakeSettings = {
       apiUrl: 'https://hypothes.is/api/',
+      oauthAuthorizeUrl: 'https://hypothes.is/oauth/authorize/',
       oauthClientId: 'the-client-id',
+      oauthRevokeUrl: 'https://hypothes.is/oauth/revoke/',
       services: [{
         authority: 'publisher.org',
         grantToken: 'a.jwt.token',
@@ -150,16 +127,14 @@ describe('sidebar.oauth-auth', function () {
     angular.mock.module('app', {
       $http: fakeHttp,
       $window: fakeWindow,
-      apiRoutes: fakeApiRoutes,
       flash: fakeFlash,
       localStorage: fakeLocalStorage,
       random: fakeRandom,
       settings: fakeSettings,
     });
 
-    angular.mock.inject((_auth_, _$rootScope_) => {
+    angular.mock.inject((_auth_) => {
       auth = _auth_;
-      $rootScope = _$rootScope_;
     });
   });
 
@@ -233,27 +208,22 @@ describe('sidebar.oauth-auth', function () {
     // the pending Promise for the first request again (and not send a second
     // concurrent HTTP request).
     it('should not make two concurrent access token requests', function () {
-      var respond;
-      fakeHttp.post.returns(new Promise(resolve => {
-        respond = resolve;
-      }));
+      makeServerUnresponsive();
 
       // The first time tokenGetter() is called it sends the access token HTTP
       // request and returns a Promise for the access token.
-      var tokens = [auth.tokenGetter(), auth.tokenGetter()];
+      var firstAccessTokenPromise = auth.tokenGetter();
 
+      // No matter how many times it's called while there's an HTTP request
+      // in-flight, tokenGetter() never sends a second concurrent HTTP request.
+      auth.tokenGetter();
+      auth.tokenGetter();
+
+      // It just keeps on returning the same Promise for the access token.
+      var accessTokenPromise = auth.tokenGetter();
+
+      assert.strictEqual(accessTokenPromise, firstAccessTokenPromise);
       assert.equal(fakeHttp.post.callCount, 1);
-
-      // Resolve the initial request for an access token in exchange for a JWT.
-      respond({
-        status: 200,
-        data: {
-          access_token: 'foo',
-          refresh_token: 'bar',
-          expires_in: 3600,
-        },
-      });
-      return Promise.all(tokens);
     });
 
     it('should return null if no grant token was provided', function () {
@@ -264,7 +234,7 @@ describe('sidebar.oauth-auth', function () {
       });
     });
 
-    it('should refresh the access token if it expired', function () {
+    it('should refresh the access token before it expires', function () {
       function callTokenGetter () {
         var tokenPromise = auth.tokenGetter();
 
@@ -294,42 +264,49 @@ describe('sidebar.oauth-auth', function () {
         };
       }
 
+      function assertThatTokenGetterNowReturnsNewAccessToken () {
+        return auth.tokenGetter().then(function (token) {
+          assert.equal(token, 'secondAccessToken');
+        });
+      }
+
       return callTokenGetter()
         .then(resetHttpSpy)
         .then(expireAccessToken)
-        .then(() => auth.tokenGetter())
-        .then(token => assert.equal(token, 'secondAccessToken'))
-        .then(assertRefreshTokenWasUsed('firstRefreshToken'));
+        .then(assertRefreshTokenWasUsed('firstRefreshToken'))
+        .then(resetHttpSpy)
+        .then(assertThatTokenGetterNowReturnsNewAccessToken)
+        .then(expireAccessToken)
+        .then(assertRefreshTokenWasUsed('secondRefreshToken'));
+    });
+
+    // While a refresh token HTTP request is in-flight, calls to tokenGetter()
+    // should just return the old access token immediately.
+    it('returns the access token while a refresh is in-flight', function() {
+      return auth.tokenGetter().then(function(firstAccessToken) {
+        makeServerUnresponsive();
+
+        expireAccessToken();
+
+        // The refresh token request will still be in-flight, but tokenGetter()
+        // should still return a Promise for the old access token.
+        return auth.tokenGetter().then(function(secondAccessToken) {
+          assert.equal(firstAccessToken, secondAccessToken);
+        });
+      });
     });
 
     // It only sends one refresh request, even if tokenGetter() is called
     // multiple times and the refresh response hasn't come back yet.
     it('does not send more than one refresh request', function () {
-      // Perform an initial token fetch which will exchange the JWT grant for an
-      // access token.
       return auth.tokenGetter()
-        .then(() => {
-          // Expire the access token to trigger a refresh request on the next
-          // token fetch.
-          fakeHttp.post.reset();
-          expireAccessToken();
-
-          // Delay the response to the refresh request.
-          var respond;
-          fakeHttp.post.returns(new Promise(resolve => {
-            respond = resolve;
-          }));
-
-          // Request an auth token multiple times.
-          var tokens = Promise.all([auth.tokenGetter(), auth.tokenGetter()]);
-
-          // Finally, respond to the refresh request.
-          respond({ access_token: 'a_new_token', refresh_token: 'a_delayed_token', expires_in: 3600 });
-
-          return tokens;
-        })
-        .then(() => {
-          // Check that only one refresh request was made.
+        .then(resetHttpSpy) // Reset fakeHttp.post.callCount to 0 so that the
+                            // initial access token request isn't counted.
+        .then(auth.tokenGetter)
+        .then(makeServerUnresponsive)
+        .then(auth.tokenGetter)
+        .then(expireAccessToken)
+        .then(function () {
           assert.equal(fakeHttp.post.callCount, 1);
         });
     });
@@ -344,12 +321,19 @@ describe('sidebar.oauth-auth', function () {
         };
       });
 
-      it('logs the user out', function () {
-        expireAccessToken();
+      it('shows an error message to the user', function () {
+        function assertThatErrorMessageWasShown() {
+          assert.calledOnce(fakeFlash.error);
+          assert.equal(
+            fakeFlash.error.firstCall.args[0],
+            'You must reload the page to continue annotating.'
+          );
+        }
 
-        return auth.tokenGetter(token => {
-          assert.equal(token, null);
-        });
+        return auth.tokenGetter()
+          .then(expireAccessToken)
+          .then(function () { clock.tick(1); })
+          .then(assertThatErrorMessageWasShown);
       });
     });
   });
@@ -366,7 +350,7 @@ describe('sidebar.oauth-auth', function () {
         assert.calledWith(fakeLocalStorage.setObject, TOKEN_KEY, {
           accessToken: 'firstAccessToken',
           refreshToken: 'firstRefreshToken',
-          expiresAt: 990000,
+          expiresAt: 910000,
         });
       });
     });
@@ -393,7 +377,7 @@ describe('sidebar.oauth-auth', function () {
         assert.calledWith(fakeLocalStorage.setObject, TOKEN_KEY, {
           accessToken: 'secondToken',
           refreshToken: 'secondRefreshToken',
-          expiresAt: 1990000,
+          expiresAt: 1910000,
         });
       });
     });
@@ -437,7 +421,7 @@ describe('sidebar.oauth-auth', function () {
           {
             accessToken: 'secondToken',
             refreshToken: 'secondRefreshToken',
-            expiresAt: 990200,
+            expiresAt: 910200,
           }
         );
       });
@@ -465,45 +449,6 @@ describe('sidebar.oauth-auth', function () {
         });
       });
     });
-
-    context('when another client instance saves new tokens', () => {
-      function notifyStoredTokenChange() {
-        // Trigger "storage" event as if another client refreshed the token.
-        var storageEvent = new Event('storage');
-        storageEvent.key = TOKEN_KEY;
-
-        fakeLocalStorage.getObject.returns({
-          accessToken: 'storedAccessToken',
-          refreshToken: 'storedRefreshToken',
-          expiresAt: Date.now() + 100,
-        });
-
-        fakeWindow.trigger(storageEvent);
-      }
-
-      it('reloads tokens from storage', () => {
-        return login().then(() => {
-          return auth.tokenGetter();
-        }).then(token => {
-          assert.equal(token, 'firstAccessToken');
-
-          notifyStoredTokenChange();
-
-          return auth.tokenGetter();
-        }).then(token => {
-          assert.equal(token, 'storedAccessToken');
-        });
-      });
-
-      it('notifies other services about the change', () => {
-        var onTokenChange = sinon.stub();
-        $rootScope.$on(events.OAUTH_TOKENS_CHANGED, onTokenChange);
-
-        notifyStoredTokenChange();
-
-        assert.called(onTokenChange);
-      });
-    });
   });
 
   describe('#login', () => {
@@ -517,29 +462,20 @@ describe('sidebar.oauth-auth', function () {
     it('opens the auth endpoint in a popup window', () => {
       auth.login();
 
-      return fakeApiRoutes.links().then((links) => {
-        var authUrl = links['oauth.authorize'];
-        var params = {
-          client_id: fakeSettings.oauthClientId,
-          origin: 'https://client.hypothes.is',
-          response_mode: 'web_message',
-          response_type: 'code',
-          state: 'notrandom',
-        };
-        var expectedAuthUrl = `${authUrl}?${stringify(params)}`;
-
-        // Check that the auth window was opened and then set to the expected
-        // location. The final URL is not passed to `window.open` to work around
-        // a pop-up blocker issue.
-        assert.calledWith(
-          fakeWindow.open,
-          'about:blank',
-          'Login to Hypothesis',
-          'height=430,left=274.5,top=169,width=475'
-        );
-        var authPopup = fakeWindow.open.returnValues[0];
-        assert.equal(authPopup.location.href, expectedAuthUrl);
-      });
+      var params = {
+        client_id: fakeSettings.oauthClientId,
+        origin: 'client.hypothes.is',
+        response_mode: 'web_message',
+        response_type: 'code',
+        state: 'notrandom',
+      };
+      var expectedAuthUrl = `${fakeSettings.oauthAuthorizeUrl}?${stringify(params)}`;
+      assert.calledWith(
+        fakeWindow.open,
+        expectedAuthUrl,
+        'Login to Hypothesis',
+        'height=400,left=312,top=184,width=400'
+      );
     });
 
     it('ignores auth responses if the state does not match', () => {
@@ -661,6 +597,12 @@ describe('sidebar.oauth-auth', function () {
   // Advance time forward so that any current access tokens will have expired.
   function expireAccessToken () {
     clock.tick(DEFAULT_TOKEN_EXPIRES_IN_SECS * 1000);
+  }
+
+  // Make $http.post() return a pending Promise (simulates a still in-flight
+  // HTTP request).
+  function makeServerUnresponsive () {
+    fakeHttp.post.returns(new Promise(function () {}));
   }
 
   // Reset fakeHttp's spy history (.called, .callCount, etc).

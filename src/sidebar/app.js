@@ -1,7 +1,6 @@
 'use strict';
 
 var addAnalytics = require('./ga');
-var disableOpenerForExternalLinks = require('./util/disable-opener-for-external-links');
 var getApiUrl = require('./get-api-url');
 var serviceConfig = require('./service-config');
 require('../shared/polyfills');
@@ -30,9 +29,6 @@ settings.apiUrl = getApiUrl(settings);
 // The `ng-csp` attribute must be set on some HTML element in the document
 // _before_ Angular is require'd for the first time.
 document.body.setAttribute('ng-csp', '');
-
-// Prevent tab-jacking.
-disableOpenerForExternalLinks(document.body);
 
 var angular = require('angular');
 
@@ -113,24 +109,10 @@ function processAppOpts() {
   }
 }
 
-function canSetCookies() {
-  // Try to add a short-lived cookie. Note the `document.cookie` setter has
-  // unusual semantics, this doesn't overwrite other cookies.
-  document.cookie = 'cookie-setter-test=1;max-age=5';
-  return document.cookie.indexOf('cookie-setter-test=1') !== -1;
-}
-
 function shouldUseOAuth() {
   if (serviceConfig(settings)) {
-    // If the host page supplies annotation service configuration, including a
-    // grant token, use OAuth.
     return true;
   }
-  if (!canSetCookies()) {
-    // If cookie storage is blocked by the browser, we have to use OAuth.
-    return true;
-  }
-  // Otherwise, use OAuth only if the feature flag is enabled.
   return settings.oauthClientId && settings.oauthEnabled;
 }
 
@@ -192,6 +174,7 @@ module.exports = angular.module('h', [
   .component('streamContent', require('./components/stream-content'))
   .component('svgIcon', require('./components/svg-icon'))
   .component('tagEditor', require('./components/tag-editor'))
+  .component('magnetEditor', require('./components/magnet-editor'))
   .component('threadList', require('./components/thread-list'))
   .component('timestamp', require('./components/timestamp'))
   .component('topBar', require('./components/top-bar'))
@@ -209,7 +192,6 @@ module.exports = angular.module('h', [
   .service('analytics', require('./analytics'))
   .service('annotationMapper', require('./annotation-mapper'))
   .service('annotationUI', require('./annotation-ui'))
-  .service('apiRoutes', require('./api-routes'))
   .service('auth', authService)
   .service('bridge', require('../shared/bridge'))
   .service('drafts', require('./drafts'))
@@ -228,6 +210,7 @@ module.exports = angular.module('h', [
   .service('streamer', require('./streamer'))
   .service('streamFilter', require('./stream-filter'))
   .service('tags', require('./tags'))
+  .service('magnets', require('./magnets'))
   .service('unicode', require('./unicode'))
   .service('viewFilter', require('./view-filter'))
 

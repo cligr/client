@@ -8,22 +8,12 @@ var scopeTimeout = require('../util/scope-timeout');
 var serviceConfig = require('../service-config');
 var bridgeEvents = require('../../shared/bridge-events');
 
-/**
- * Return the user's authentication status from their profile.
- *
- * @param {Profile} profile - The profile object from the API.
- */
-function authStateFromProfile(profile) {
-  if (profile.userid) {
-    var parsed = parseAccountID(profile.userid);
-    var displayName = parsed.username;
-    if (profile.user_info && profile.user_info.display_name) {
-      displayName = profile.user_info.display_name;
-    }
+function authStateFromUserID(userid) {
+  if (userid) {
+    var parsed = parseAccountID(userid);
     return {
       status: 'logged-in',
-      displayName,
-      userid: profile.userid,
+      userid: userid,
       username: parsed.username,
       provider: parsed.provider,
     };
@@ -72,17 +62,21 @@ function HypothesisAppController(
 
   // Reload the view when the user switches accounts
   $scope.$on(events.USER_CHANGED, function (event, data) {
-    self.auth = authStateFromProfile(data.profile);
+    self.auth = authStateFromUserID(data.userid);
     self.accountDialog.visible = false;
+
+    if (!data || !data.initialLoad) {
+      $route.reload();
+    }
   });
 
-  session.load().then(function (profile) {
+  session.load().then(function (state) {
     // When the authentication status of the user is known,
     // update the auth info in the top bar and show the login form
     // after first install of the extension.
-    self.auth = authStateFromProfile(profile);
+    self.auth = authStateFromUserID(state.userid);
 
-    if (!profile.userid && settings.openLoginForm && !auth.login) {
+    if (!state.userid && settings.openLoginForm) {
       self.login();
     }
   });

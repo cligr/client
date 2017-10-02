@@ -13,6 +13,15 @@
                      show-document-info="vm.showDocumentInfo">
   </annotation-header>
 
+  <!-- Magnets -->
+
+  <div class="annotation-body form-field" ng-if="vm.editing()">
+    <magnet-editor magnets="vm.state().magnets"
+                on-edit-magnets="vm.setMagnets(magnets)"></magnet-editor>
+  </div>
+
+  <!-- / Magnets -->
+
   <!-- Excerpts -->
   <section class="annotation-quote-list"
     ng-class="{'is-orphan' : vm.isOrphan()}"

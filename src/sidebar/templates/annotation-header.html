@@ -5,10 +5,10 @@
       target="_blank"
       ng-if="!vm.isThirdPartyUser()"
       ng-href="{{vm.serviceUrl('user',{user:vm.user()})}}"
-      >{{vm.displayName()}}</a>
+      >{{vm.username()}}</a>
     <span class="annotation-header__user"
       ng-if="vm.isThirdPartyUser()"
-      >{{vm.displayName()}}</span>
+      >{{vm.username()}}</span>
     <span class="annotation-collapsed-replies">
       <a class="annotation-link" href=""
         ng-click="vm.onReplyCountClick()"
@@ -37,6 +37,10 @@
               ng-if="vm.documentMeta().domain">({{vm.documentMeta().domain}})</span>
       </span>
     </span>
+    <!-- Magnet display test -->
+    <br>
+    <span class="annotation-header__magnet" ng-if="vm.annotation.magnets.length > 0 && !vm.isEditing">Magnet: {{vm.annotation.magnets[0]}}</span>
+    <span class="annotation-header__magnet" ng-if="vm.annotation.magnets.length === 0 && !vm.isEditing">This annotation has no magnet!</span>
   </span>
 
   <span class="u-flex-spacer"></span>

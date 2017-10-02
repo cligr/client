@@ -18,6 +18,7 @@ function updateModel(annotation, changes, permissions) {
     // Apply changes from the draft
     tags: changes.tags,
     text: changes.text,
+    magnets: changes.magnets,
     permissions: changes.isPrivate ?
       permissions.private(userid) : permissions.shared(userid, annotation.group),
   });
@@ -106,11 +107,7 @@ function AnnotationController(
 
     // New annotations (just created locally by the client, rather then
     // received from the server) have some fields missing. Add them.
-    //
-    // FIXME: This logic should go in the `addAnnotations` Redux action once all
-    // required state is in the store.
     self.annotation.user = self.annotation.user || session.state.userid;
-    self.annotation.user_info = self.annotation.user_info || session.state.user_info;
     self.annotation.group = self.annotation.group || groups.focused().id;
     if (!self.annotation.permissions) {
       self.annotation.permissions = permissions.default(self.annotation.user,
@@ -119,6 +116,9 @@ function AnnotationController(
     self.annotation.text = self.annotation.text || '';
     if (!Array.isArray(self.annotation.tags)) {
       self.annotation.tags = [];
+    }
+    if (!Array.isArray(self.annotation.magnets)) {
+      self.annotation.magnets = [];
     }
 
     // Automatically save new highlights to the server when they're created.
@@ -274,7 +274,8 @@ function AnnotationController(
     *   otherwise.
     */
   this.hasContent = function() {
-    return self.state().text.length > 0 || self.state().tags.length > 0;
+    return self.state().text.length > 0 || self.state().tags.length > 0
+      || self.state().magnets.length > 0;
   };
 
   /**
@@ -439,6 +440,7 @@ function AnnotationController(
     drafts.update(self.annotation, {
       tags: self.state().tags,
       text: self.state().text,
+      magnets: self.state().magnets,
       isPrivate: privacy === 'private',
     });
   };
@@ -524,6 +526,7 @@ function AnnotationController(
       isPrivate: self.state().isPrivate,
       tags: self.state().tags,
       text: text,
+      magnets: self.state().magnets,
     });
   };
 
@@ -532,6 +535,16 @@ function AnnotationController(
       isPrivate: self.state().isPrivate,
       tags: tags,
       text: self.state().text,
+      magnets: self.state().magnets,
+    });
+  };
+
+  this.setMagnets = function (magnets) {
+    drafts.update(self.annotation, {
+      isPrivate: self.state().isPrivate,
+      tags: self.state().tags,
+      text: self.state().text,
+      magnets: magnets,
     });
   };
 
@@ -543,6 +556,7 @@ function AnnotationController(
     return {
       tags: self.annotation.tags,
       text: self.annotation.text,
+      magnets: self.annotation.magnets,
       isPrivate: !permissions.isShared(self.annotation.permissions,
                                        self.annotation.user),
     };
