@@ -30,6 +30,7 @@ var TAB_SORTKEY_DEFAULT = {};
 TAB_SORTKEY_DEFAULT[uiConstants.TAB_ANNOTATIONS] = 'Location';
 TAB_SORTKEY_DEFAULT[uiConstants.TAB_NOTES] = 'Oldest';
 TAB_SORTKEY_DEFAULT[uiConstants.TAB_ORPHANS] = 'Location';
+TAB_SORTKEY_DEFAULT[uiConstants.TAB_REVIEW] = 'Location';
 
 /**
  * Available sort keys for each tab.
@@ -38,6 +39,7 @@ var TAB_SORTKEYS_AVAILABLE = {};
 TAB_SORTKEYS_AVAILABLE[uiConstants.TAB_ANNOTATIONS] = ['Newest', 'Oldest', 'Location'];
 TAB_SORTKEYS_AVAILABLE[uiConstants.TAB_NOTES] = ['Newest', 'Oldest'];
 TAB_SORTKEYS_AVAILABLE[uiConstants.TAB_ORPHANS] = ['Newest', 'Oldest', 'Location'];
+TAB_SORTKEYS_AVAILABLE[uiConstants.TAB_REVIEW] = ['Newest', 'Oldest'];
 
 
 function initialSelection(settings) {
@@ -117,6 +119,7 @@ var update = {
     // Do nothing if the "new tab" is not a valid tab.
     if ([uiConstants.TAB_ANNOTATIONS,
          uiConstants.TAB_NOTES,
+         uiConstants.TAB_REVIEW,
          uiConstants.TAB_ORPHANS].indexOf(action.tab) === -1) {
       return {};
     }

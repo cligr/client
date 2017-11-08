@@ -20,6 +20,17 @@
                 on-edit-magnets="vm.setMagnets(magnets)"></magnet-editor>
   </div>
 
+  <div class="annotation-body u-layout-row tags tags-read-only"
+       ng-if="(vm.canCollapseBody || vm.state().magnets.length) && !vm.editing()">
+    <b>Magnets: </b>
+    <ul class="tag-list">
+      <li class="tag-item" ng-repeat="magnet in vm.state().magnets">
+        <a ng-href="{{vm.tagSearchURL(magnet)}}" target="_blank">{{magnet}}</a>
+      </li>
+    </ul>
+    <div class="u-stretch"></div>
+  </div>
+
   <!-- / Magnets -->
 
   <!-- Excerpts -->

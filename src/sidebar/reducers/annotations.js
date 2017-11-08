@@ -46,6 +46,12 @@ function findByTag(annotations, tag) {
   });
 }
 
+function findByMagnet(annotations, magnet) {
+  return annotations.find(function (annot) {
+    return annot.$magnet === magnet;
+  });
+}
+
 /**
  * Initialize the status flags and properties of a new annotation.
  */

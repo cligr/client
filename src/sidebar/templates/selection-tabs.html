@@ -20,6 +20,20 @@
       {{ vm.totalNotes }}
     </span>
   </a>
+  <!-- Review Tab -->
+  <a class="selection-tabs__type"
+     href="#"
+     ng-class="{'is-selected': vm.selectedTab === vm.TAB_REVIEW}"
+     h-on-touch="vm.selectTab(vm.TAB_REVIEW)">
+    Review
+    <!--
+    <span class="selection-tabs__count"
+      ng-if="vm.totalAnnotations > 0 && !vm.isWaitingToAncohrAnnotations">
+      {{ vm.totalAnnotations + vm.totalNotes }}
+    </span>
+    -->
+  </a>
+
   <a class="selection-tabs__type selection-tabs__type--orphan"
     ng-if="vm.orphansTabFlagEnabled() && vm.totalOrphans > 0"
     href="#"

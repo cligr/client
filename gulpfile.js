@@ -265,6 +265,7 @@ function generateBootScript(manifest) {
   var { version } = require('./package.json');
 
   var defaultSidebarAppUrl = process.env.SIDEBAR_APP_URL ?
+    //`${process.env.SIDEBAR_APP_URL}` : '138.197.126.178/app.html';
     `${process.env.SIDEBAR_APP_URL}` : 'https://hypothes.is/app.html';
 
   var defaultAssetRoot;

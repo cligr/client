@@ -37,10 +37,13 @@
               ng-if="vm.documentMeta().domain">({{vm.documentMeta().domain}})</span>
       </span>
     </span>
+
     <!-- Magnet display test -->
+    <!--
     <br>
-    <span class="annotation-header__magnet" ng-if="vm.annotation.magnets.length > 0 && !vm.isEditing">Magnet: {{vm.annotation.magnets[0]}}</span>
+    <span class="annotation-header__magnet" ng-if="vm.annotation.magnets.length > 0 && !vm.isEditing"><strong>Magnet</strong>: {{vm.annotation.magnets[0]}}</span>
     <span class="annotation-header__magnet" ng-if="vm.annotation.magnets.length === 0 && !vm.isEditing">This annotation has no magnet!</span>
+    /-->
   </span>
 
   <span class="u-flex-spacer"></span>

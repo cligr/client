@@ -9,6 +9,7 @@ module.exports = {
     this.TAB_ANNOTATIONS = uiConstants.TAB_ANNOTATIONS;
     this.TAB_NOTES = uiConstants.TAB_NOTES;
     this.TAB_ORPHANS = uiConstants.TAB_ORPHANS;
+    this.TAB_REVIEW = uiConstants.TAB_REVIEW;
 
     this.selectTab = function (type) {
       annotationUI.clearSelectedAnnotations();

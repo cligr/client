@@ -449,6 +449,10 @@ function AnnotationController(
     return serviceUrl('search.tag', {tag: tag});
   };
 
+  //this.magnetSearchURL = function(magnet) {
+  //  return serviceUrl('search.magnet', {magnet: magnet});
+  //};
+
   // Note: We fetch the feature flag outside the `isOrphan` method to avoid a
   // lookup on every $digest cycle
   var indicateOrphans = features.flagEnabled('orphans_tab');

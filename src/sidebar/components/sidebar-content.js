@@ -4,7 +4,6 @@ var SearchClient = require('../search-client');
 var events = require('../events');
 var memoize = require('../util/memoize');
 var tabs = require('../tabs');
-//var magnets = require('../magnets');
 var uiConstants = require('../ui-constants');
 
 function firstKey(object) {
@@ -264,6 +263,10 @@ function SidebarContentController(
 
   this.focus = focusAnnotation;
   this.scrollTo = scrollToAnnotation;
+
+  this.reviewTabSelected = function () {
+    return self.selectedTab === uiConstants.TAB_REVIEW;
+  }
 
   this.selectedAnnotationCount = function () {
     var selection = annotationUI.getState().selectedAnnotationMap;

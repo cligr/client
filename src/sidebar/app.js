@@ -176,6 +176,7 @@ module.exports = angular.module('h', [
   .component('tagEditor', require('./components/tag-editor'))
   .component('magnetEditor', require('./components/magnet-editor'))
   .component('threadList', require('./components/thread-list'))
+  .component('reviewTab', require('./components/review-tab'))
   .component('timestamp', require('./components/timestamp'))
   .component('topBar', require('./components/top-bar'))
 

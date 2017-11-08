@@ -25,6 +25,10 @@ function shouldSeparateOrphans(state) {
  *        separate tab.
  */
 function tabForAnnotation(ann, separateOrphans) {
+  //if (annotationUI.getState().selectedTab === uiConstants.TAB_REVIEW){
+  //  return uiConstants.TAB_REVIEW; }
+  //return uiConstants.TAB_ANNOTATIONS;
+
   if (metadata.isOrphan(ann) && separateOrphans) {
     return uiConstants.TAB_ORPHANS;
   } else if (metadata.isPageNote(ann)) {
@@ -48,6 +52,9 @@ function shouldShowInTab(ann, tab, separateOrphans) {
     // tab it should be displayed in.
     return false;
   }
+  if (tab === uiConstants.TAB_REVIEW) {
+    return true;
+  }
   return tabForAnnotation(ann, separateOrphans) === tab;
 }
 
@@ -64,6 +71,7 @@ function counts(annotations, separateOrphans) {
     annotations: countIf(annotations, metadata.isAnnotation),
     orphans: countIf(annotations, metadata.isOrphan),
     anchoring: countIf(annotations, metadata.isWaitingToAnchor),
+    review: countIf(annotations, metadata.isAnnotation) + countIf(annotations, metadata.isPageNote),
   };
 
   if (separateOrphans) {
