@@ -1,5 +1,7 @@
 'use strict';
 
+var queryString = require('query-string');
+
 /**
 * Return an HTML5 audio player with the given src URL.
 */
@@ -24,15 +26,93 @@ function iframe(src) {
 }
 
 /**
+ * Return timeValue as a value in seconds, supporting `t` param's optional
+ * '\dh\dm\ds' format. If `timeValue` is numeric (only),
+ * it's assumed to be seconds and is left alone.
+ *
+ * @param {string} timeValue - value of `t` or `start` param in YouTube URL
+ * @returns {string} timeValue in seconds
+ * @example
+ * formatYouTubeTime('5m'); // returns '300'
+ * formatYouTubeTime('20m10s'); // returns '1210'
+ * formatYouTubeTime('1h1s'); // returns '3601'
+ * formatYouTubeTime('10'); // returns '10'
+ **/
+function parseTimeString (timeValue) {
+  var timePattern = /(\d+)([hms]?)/g;
+  const multipliers = {
+    h: 60 * 60,
+    m: 60,
+    s: 1,
+  };
+  var seconds = 0;
+  var match;
+  // match[1] - Numeric value
+  // match[2] - Unit (e.g. 'h','m','s', or empty)
+  while ((match = timePattern.exec(timeValue)) !== null) {
+    if (match[2]) {
+      seconds += match[1] * multipliers[match[2]];
+    } else {
+      seconds += +match[1]; // Treat values missing units as seconds
+    }
+  }
+  return seconds.toString();
+}
+
+/**
+ * Return a YouTube URL query string containing (only) whitelisted params.
+ * See https://developers.google.com/youtube/player_parameters for
+ * all parameter possibilities.
+ *
+ * @returns {string} formatted filtered URL query string, e.g. '?start=90'
+ * @example
+ * // returns '?end=10&start=5'
+ * youTubeQueryParams(link); // where `link.search` = '?t=5&baz=foo&end=10'
+ * // - `t` is translated to `start`
+ * // - `baz` is not allowed param
+ * // - param keys are sorted
+ */
+function youTubeQueryParams(link) {
+  var query;
+  const allowedParams = [
+    'end',
+    'start',
+    't',                // will be translated to `start`
+  ];
+  const linkParams = queryString.parse(link.search);
+  const filteredQuery = {};
+  // Filter linkParams for allowed keys and build those entries
+  // into the filteredQuery object
+  Object.keys(linkParams)
+    .filter(key => allowedParams.includes(key))
+    .forEach(key => {
+      if (key === 't') {
+        // `t` is not supported in embeds; `start` is
+        // `t` accepts more formats than `start`; start must be in seconds
+        // so, format it as seconds first
+        filteredQuery.start = parseTimeString(linkParams[key]);
+      } else {
+        filteredQuery[key] = linkParams[key];
+      }
+    });
+  query = queryString.stringify(filteredQuery);
+  if (query) {
+    query = `?${query}`;
+  }
+  return query;
+}
+/**
  * Return a YouTube embed (<iframe>) DOM element for the given video ID.
  */
-function youTubeEmbed(id) {
-  return iframe('https://www.youtube.com/embed/' + id);
+function youTubeEmbed(id, link) {
+  const query  = youTubeQueryParams(link);
+  return iframe(`https://www.youtube.com/embed/${id}${query}`);
 }
 
 function vimeoEmbed(id) {
   return iframe('https://player.vimeo.com/video/' + id);
 }
+
 
 /**
  * A list of functions that return an "embed" DOM element (e.g. an <iframe> or
@@ -56,7 +136,7 @@ var embedGenerators = [
 
     var groups = /[&\?]v=([^&#]+)/.exec(link.search);
     if (groups) {
-      return youTubeEmbed(groups[1]);
+      return youTubeEmbed(groups[1], link);
     }
     return null;
   },
@@ -67,9 +147,10 @@ var embedGenerators = [
       return null;
     }
 
+    // extract video ID from URL
     var groups = /^\/([^\/]+)\/?$/.exec(link.pathname);
     if (groups) {
-      return youTubeEmbed(groups[1]);
+      return youTubeEmbed(groups[1], link);
     }
     return null;
   },
@@ -99,6 +180,71 @@ var embedGenerators = [
     }
     return null;
   },
+
+  /**
+   * Match Internet Archive URLs
+   *
+   *  The patterns are:
+   *
+   *  1. https://archive.org/embed/{slug}?start={startTime}&end={endTime}
+   *     (Embed links)
+   *
+   *  2. https://archive.org/details/{slug}?start={startTime}&end={endTime}
+   *     (Video page links for most videos)
+   *
+   *  3. https://archive.org/details/{slug}/start/{startTime}/end/{endTime}
+   *     (Video page links for the TV News Archive [1])
+   *
+   *  (2) and (3) allow users to copy and paste URLs from archive.org video
+   *  details pages directly into the sidebar to generate video embeds.
+   *
+   *  [1] https://archive.org/details/tv
+   */
+  function iFrameFromInternetArchiveLink(link) {
+    if (link.hostname !== 'archive.org') {
+      return null;
+    }
+
+    // Extract the unique slug from the path.
+    var slugMatch = /^\/(embed|details)\/(.+)/.exec(link.pathname);
+    if (!slugMatch) {
+      return null;
+    }
+
+    // Extract start and end times, which may appear either as query string
+    // params or path params.
+    var slug = slugMatch[2];
+    var linkParams = queryString.parse(link.search);
+    var startTime = linkParams.start;
+    var endTime = linkParams.end;
+
+    if (!startTime) {
+      var startPathParam = slug.match(/\/start\/([^\/]+)/);
+      if (startPathParam) {
+        startTime = startPathParam[1];
+        slug = slug.replace(startPathParam[0], '');
+      }
+    }
+
+    if (!endTime) {
+      var endPathParam = slug.match(/\/end\/([^\/]+)/);
+      if (endPathParam) {
+        endTime = endPathParam[1];
+        slug = slug.replace(endPathParam[0], '');
+      }
+    }
+
+    // Generate embed URL.
+    var iframeUrl = new URL(`https://archive.org/embed/${slug}`);
+    if (startTime) {
+      iframeUrl.searchParams.append('start', startTime);
+    }
+    if (endTime) {
+      iframeUrl.searchParams.append('end', endTime);
+    }
+    return iframe(iframeUrl.href);
+  },
+
 
   // Matches URLs that end with .mp3, .ogg, or .wav (assumed to be audio files)
   function html5audioFromMp3Link(link) {

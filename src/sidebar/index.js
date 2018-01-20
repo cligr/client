@@ -1,8 +1,10 @@
 'use strict';
 
 var addAnalytics = require('./ga');
+var disableOpenerForExternalLinks = require('./util/disable-opener-for-external-links');
 var getApiUrl = require('./get-api-url');
 var serviceConfig = require('./service-config');
+var crossOriginRPC = require('./cross-origin-rpc.js');
 require('../shared/polyfills');
 
 var raven;
@@ -29,6 +31,9 @@ settings.apiUrl = getApiUrl(settings);
 // The `ng-csp` attribute must be set on some HTML element in the document
 // _before_ Angular is require'd for the first time.
 document.body.setAttribute('ng-csp', '');
+
+// Prevent tab-jacking.
+disableOpenerForExternalLinks(document.body);
 
 var angular = require('angular');
 
@@ -93,12 +98,6 @@ function configureToastr(toastrConfig) {
 }
 
 // @ngInject
-function configureHttp($httpProvider) {
-  // Use the Pyramid XSRF header name
-  $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token';
-}
-
-// @ngInject
 function setupHttp($http, streamer) {
   $http.defaults.headers.common['X-Client-Id'] = streamer.clientId;
 }
@@ -109,25 +108,9 @@ function processAppOpts() {
   }
 }
 
-function shouldUseOAuth() {
-  if (serviceConfig(settings)) {
-    return true;
-  }
-  return settings.oauthClientId && settings.oauthEnabled;
-}
-
-var authService;
-if (shouldUseOAuth()) {
-  authService = require('./oauth-auth');
-} else {
-  authService = require('./auth');
-}
-
 module.exports = angular.module('h', [
   // Angular addons which export the Angular module name
   // via module.exports
-  require('angular-jwt'),
-  require('angular-resource'),
   require('angular-route'),
   require('angular-sanitize'),
   require('angular-toastr'),
@@ -160,9 +143,9 @@ module.exports = angular.module('h', [
   .component('helpPanel', require('./components/help-panel'))
   .component('loggedoutMessage', require('./components/loggedout-message'))
   .component('loginControl', require('./components/login-control'))
-  .component('loginForm', require('./components/login-form'))
   .component('markdown', require('./components/markdown'))
   .component('moderationBanner', require('./components/moderation-banner'))
+  .component('newNoteBtn', require('./components/new-note-btn'))
   .component('publishAnnotationBtn', require('./components/publish-annotation-btn'))
   .component('searchInput', require('./components/search-input'))
   .component('searchStatusBar', require('./components/search-status-bar'))
@@ -180,25 +163,22 @@ module.exports = angular.module('h', [
   .component('timestamp', require('./components/timestamp'))
   .component('topBar', require('./components/top-bar'))
 
-  .directive('formInput', require('./directive/form-input'))
-  .directive('formValidate', require('./directive/form-validate'))
   .directive('hAutofocus', require('./directive/h-autofocus'))
   .directive('hBranding', require('./directive/h-branding'))
   .directive('hOnTouch', require('./directive/h-on-touch'))
   .directive('hTooltip', require('./directive/h-tooltip'))
   .directive('spinner', require('./directive/spinner'))
-  .directive('statusButton', require('./directive/status-button'))
   .directive('windowScroll', require('./directive/window-scroll'))
 
   .service('analytics', require('./analytics'))
   .service('annotationMapper', require('./annotation-mapper'))
   .service('annotationUI', require('./annotation-ui'))
-  .service('auth', authService)
+  .service('apiRoutes', require('./api-routes'))
+  .service('auth', require('./oauth-auth'))
   .service('bridge', require('../shared/bridge'))
   .service('drafts', require('./drafts'))
   .service('features', require('./features'))
   .service('flash', require('./flash'))
-  .service('formRespond', require('./form-respond'))
   .service('frameSync', require('./frame-sync').default)
   .service('groups', require('./groups'))
   .service('localStorage', require('./local-storage'))
@@ -219,6 +199,7 @@ module.exports = angular.module('h', [
 
   .value('Discovery', require('../shared/discovery'))
   .value('ExcerptOverflowMonitor', require('./util/excerpt-overflow-monitor'))
+  .value('OAuthClient', require('./util/oauth-client'))
   .value('VirtualThreadList', require('./virtual-thread-list'))
   .value('random', require('./util/random'))
   .value('raven', require('./raven'))
@@ -227,12 +208,12 @@ module.exports = angular.module('h', [
   .value('time', require('./time'))
   .value('urlEncodeFilter', require('./filter/url').encode)
 
-  .config(configureHttp)
   .config(configureLocation)
   .config(configureRoutes)
   .config(configureToastr)
 
-  .run(setupHttp);
+  .run(setupHttp)
+  .run(crossOriginRPC.server.start);
 
 processAppOpts();
 
